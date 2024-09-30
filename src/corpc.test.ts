@@ -49,18 +49,15 @@ function coFactoryA<E extends Events>({
   const eventHandlers = createCorpc({
     events: events,
     postMessage(message) {
-      console.log("postMessage a -> b", message);
       windowA.postMessage(message);
     },
     listener: (handler) => (message: any) => {
       handler(message);
     },
     addMessageEventListener(listener) {
-      console.log("addMessageEventListener a", listener);
       windowA.addListener(listener);
     },
     removeMessageEventListener(listener) {
-      console.log("removeMessageEventListener a", listener);
       windowA.removeListener(listener);
     },
     timeout,
@@ -79,18 +76,15 @@ function coFactoryB<E extends Events>({
   const eventHandlers = createCorpc({
     events: events,
     postMessage(message) {
-      console.log("postMessage b -> a", message);
       windowB.postMessage(message);
     },
     listener: (handler) => (message: any) => {
       handler(message);
     },
     addMessageEventListener(listener) {
-      console.log("addMessageEventListener b", listener);
       windowB.addListener(listener);
     },
     removeMessageEventListener(listener) {
-      console.log("removeMessageEventListener b", listener);
       windowB.removeListener(listener);
     },
     timeout,
