@@ -21,15 +21,22 @@
   "files": [
     "dist"
   ],
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "format": "prettier --write .",
-    "ci": "pnpm run build"
+    "check-format": "prettier --check .",
+    "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
+    "test": "vitest run",
+    "dev": "vitest",
+    "ci": "pnpm run build && pnpm run check-format && pnpm run check-exports && pnpm run test"
   },
   "license": "MIT",
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.16.4",
     "prettier": "^3.3.3",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
   }
 }
