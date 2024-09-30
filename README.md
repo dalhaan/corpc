@@ -2,6 +2,12 @@
 
 A package for promisifying cross-origin messaging (e.g. `window.postMessage`).
 
+## Install
+
+```sh
+npm install corpc
+```
+
 ## Basic usage
 
 ```ts
