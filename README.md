@@ -1,4 +1,4 @@
-# CORPC: Cross-Origin Remote Procedure Call
+# coRPC: Cross-Origin Remote Procedure Call
 
 A package for promisifying cross-origin messaging (e.g. `window.postMessage`).
 

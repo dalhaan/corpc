@@ -4,7 +4,7 @@ const DEFAULT_EVENT_TIMEOUT = 5000;
 
 let currentId = 0;
 
-type Events = Record<string, (...args: any) => any>;
+export type Events = Record<string, (...args: any) => any>;
 
 type Config<Listener extends (...args: any) => void> = {
   events?: Events;
@@ -28,7 +28,10 @@ export function createCorpc<
   Cfg extends Config<Listener>,
 >(
   config: Config<Listener> & Cfg,
-): Cfg["events"] & { createProxy<E extends Events>(): EventHandlers<E> } {
+): Cfg["events"] & {
+  createProxy<E extends Events>(): EventHandlers<E>;
+  cleanUp: () => void;
+} {
   const postMessageHandler =
     config.postMessage ||
     ((message: unknown) => {
@@ -180,13 +183,21 @@ export function createCorpc<
     }
   }
 
+  const messageListener = listenerHandler(handleMessage);
+
+  function cleanUp() {
+    if (config.events) {
+      removeMessageEventListenerHandler(messageListener);
+    }
+  }
+
   if (config.events) {
-    const messageListener = listenerHandler(handleMessage);
     addMessageEventListenerHandler(messageListener);
   }
 
   return {
     createProxy,
+    cleanUp,
     ...config.events,
   };
 }
