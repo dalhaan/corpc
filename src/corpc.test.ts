@@ -93,66 +93,60 @@ function coFactoryB<E extends Events>({
   return eventHandlers;
 }
 
-describe(
-  "sync",
-  () => {
-    test("success", async () => {
-      const eventsA = coFactoryA({
-        events: {
-          test: () => "A TEST",
-        },
-      });
-
-      const eventsB = coFactoryB({
-        events: {
-          test: () => "B TEST",
-        },
-      });
-
-      const proxyA = eventsB.createProxy<typeof eventsA>();
-      const proxyB = eventsA.createProxy<typeof eventsB>();
-
-      const aTest = await proxyA.test();
-      const bTest = await proxyB.test();
-
-      expect(aTest).toBe("A TEST");
-      expect(bTest).toBe("B TEST");
-
-      eventsA.cleanUp();
-      eventsB.cleanUp();
+describe("sync", () => {
+  test("success", async () => {
+    const eventsA = coFactoryA({
+      events: {
+        test: () => "A TEST",
+      },
     });
 
-    test("fail", async () => {
-      const eventsA = coFactoryA({
-        events: {
-          test: () => {
-            throw new Error("Simulated fail");
-          },
-        },
-      });
-
-      const eventsB = coFactoryB({
-        events: {
-          test: () => {
-            throw new Error("Simulated fail");
-          },
-        },
-      });
-
-      const proxyA = eventsB.createProxy<typeof eventsA>();
-      const proxyB = eventsA.createProxy<typeof eventsB>();
-
-      await expect(() => proxyA.test()).rejects.toThrowError(/Simulated fail/);
-      await expect(() => proxyB.test()).rejects.toThrowError(/Simulated fail/);
-
-      eventsA.cleanUp();
-      eventsB.cleanUp();
+    const eventsB = coFactoryB({
+      events: {
+        test: () => "B TEST",
+      },
     });
-  },
-  {
-    concurrent: false,
-  },
-);
+
+    const proxyA = eventsB.createProxy<typeof eventsA>();
+    const proxyB = eventsA.createProxy<typeof eventsB>();
+
+    const aTest = await proxyA.test();
+    const bTest = await proxyB.test();
+
+    expect(aTest).toBe("A TEST");
+    expect(bTest).toBe("B TEST");
+
+    eventsA.cleanUp();
+    eventsB.cleanUp();
+  });
+
+  test("fail", async () => {
+    const eventsA = coFactoryA({
+      events: {
+        test: () => {
+          throw new Error("Simulated fail");
+        },
+      },
+    });
+
+    const eventsB = coFactoryB({
+      events: {
+        test: () => {
+          throw new Error("Simulated fail");
+        },
+      },
+    });
+
+    const proxyA = eventsB.createProxy<typeof eventsA>();
+    const proxyB = eventsA.createProxy<typeof eventsB>();
+
+    await expect(() => proxyA.test()).rejects.toThrowError(/Simulated fail/);
+    await expect(() => proxyB.test()).rejects.toThrowError(/Simulated fail/);
+
+    eventsA.cleanUp();
+    eventsB.cleanUp();
+  });
+});
 
 describe("async", () => {
   test("success", async () => {

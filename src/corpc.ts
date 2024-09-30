@@ -2,8 +2,6 @@ import { extractError } from "./utils/extractError.js";
 
 const DEFAULT_EVENT_TIMEOUT = 5000;
 
-let currentId = 0;
-
 export type Events = Record<string, (...args: any) => any>;
 
 type Config<Listener extends (...args: any) => void> = {
@@ -13,6 +11,7 @@ type Config<Listener extends (...args: any) => void> = {
   addMessageEventListener?: (listener: Listener) => void;
   removeMessageEventListener?: (listener: Listener) => void;
   timeout?: number;
+  logger?: (...args: any) => void;
 };
 
 type EventHandlers<E extends Events> = {
@@ -53,6 +52,8 @@ export function createCorpc<
       })) as (listener: Listener | ((event: MessageEvent) => void)) => void;
 
   function createProxy<E extends Events>() {
+    let currentId = 0;
+
     return new Proxy(
       {},
       {
@@ -104,8 +105,10 @@ export function createCorpc<
 
                   if (wasSuccessful) {
                     resolve(result);
+                    config.logger?.("EVENT::SUCCESS", eventId, eventName);
                   } else {
                     reject(result);
+                    config.logger?.("EVENT::FAIL", eventId, eventName);
                   }
                 }
 
@@ -115,6 +118,8 @@ export function createCorpc<
               addMessageEventListenerHandler(listener);
 
               postMessageHandler([eventName, eventId, ...args]);
+
+              config.logger?.("EVENT::EMIT", eventId, eventName);
             });
         },
       },
@@ -147,6 +152,8 @@ export function createCorpc<
           if (!handler) {
             throw new Error("Handler has not been defined");
           }
+
+          config.logger?.("EVENT::HANDLE", eventId, eventName);
 
           const result = handler(...rest);
 
