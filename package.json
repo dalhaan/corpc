@@ -1,6 +1,6 @@
 {
   "name": "corpc",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Cross-Origin Remote Procedure Call",
   "keywords": [
     "typescript",
@@ -30,11 +30,14 @@
     "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
     "test": "vitest run",
     "dev": "vitest",
-    "ci": "pnpm run build && pnpm run check-format && pnpm run check-exports && pnpm run test"
+    "local-release": "changeset version && changeset publish",
+    "ci": "pnpm run build && pnpm run check-format && pnpm run check-exports && pnpm run test",
+    "prepublishOnly": "npm run ci"
   },
   "license": "MIT",
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.4",
+    "@changesets/cli": "^2.27.8",
     "prettier": "^3.3.3",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1"
