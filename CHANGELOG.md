@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.4
+
+### Patch Changes
+
+- 5ed9277: Mark project as side-effect free
+
 ## 0.1.3
 
 ### Patch Changes
