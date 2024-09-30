@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.3
+
+### Patch Changes
+
+- 44cf92a: Add optional logger
+
 ## 0.1.2
 
 ### Patch Changes
