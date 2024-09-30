@@ -1,12 +1,35 @@
 {
   "name": "corpc",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Cross-Origin Remote Procedure Call",
+  "keywords": [
+    "typescript",
+    "postMessage",
+    "promise",
+    "rpc",
+    "message"
+  ],
+  "homepage": "https://github.com/dalhaan/corpc",
+  "bugs": {
+    "url": "https://github.com/dalhaan/corpc/issues"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "author": "Dallan Freemantle <dallan.freemantle@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dalhaan/corpc.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write .",
+    "ci": "pnpm run build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.2"
+  }
 }
