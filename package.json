@@ -1,0 +1,45 @@
+{
+  "name": "corpc",
+  "version": "0.1.2",
+  "description": "Cross-Origin Remote Procedure Call",
+  "keywords": [
+    "typescript",
+    "postMessage",
+    "promise",
+    "rpc",
+    "message"
+  ],
+  "homepage": "https://github.com/dalhaan/corpc",
+  "bugs": {
+    "url": "https://github.com/dalhaan/corpc/issues"
+  },
+  "author": "Dallan Freemantle <dallan.npm@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dalhaan/corpc.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write .",
+    "check-format": "prettier --check .",
+    "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
+    "test": "vitest run",
+    "dev": "vitest",
+    "local-release": "changeset version && changeset publish",
+    "ci": "pnpm run build && pnpm run check-format && pnpm run check-exports && pnpm run test",
+    "prepublishOnly": "npm run ci"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.16.4",
+    "@changesets/cli": "^2.27.8",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}
