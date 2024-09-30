@@ -1,1 +1,1 @@
-export { add } from "./utils.js";
+export { createCorpc } from "./corpc.js";
