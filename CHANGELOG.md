@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.2
+
+### Patch Changes
+
+- 90f06ba: Update package
+
 ## 0.1.1
 
 ### Patch Changes
