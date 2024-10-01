@@ -1,4 +1,4 @@
-import { createCorpc, type Events } from "./corpc.js";
+import { createCorpc, type Procedures } from "./corpc.js";
 import { test, expect, describe } from "vitest";
 
 type Handler = (message: any) => void;
@@ -39,15 +39,15 @@ const windowB = {
   },
 };
 
-function coFactoryA<E extends Events>({
-  events,
+function coFactoryA<E extends Procedures>({
+  procedures,
   timeout,
 }: {
-  events?: E;
+  procedures?: E;
   timeout?: number;
 }) {
   const eventHandlers = createCorpc({
-    events: events,
+    procedures,
     postMessage(message) {
       windowA.postMessage(message);
     },
@@ -66,15 +66,15 @@ function coFactoryA<E extends Events>({
   return eventHandlers;
 }
 
-function coFactoryB<E extends Events>({
-  events,
+function coFactoryB<E extends Procedures>({
+  procedures,
   timeout,
 }: {
-  events?: E;
+  procedures?: E;
   timeout?: number;
 }) {
   const eventHandlers = createCorpc({
-    events: events,
+    procedures,
     postMessage(message) {
       windowB.postMessage(message);
     },
@@ -96,13 +96,13 @@ function coFactoryB<E extends Events>({
 describe("sync", () => {
   test("success", async () => {
     const eventsA = coFactoryA({
-      events: {
+      procedures: {
         test: () => "A TEST",
       },
     });
 
     const eventsB = coFactoryB({
-      events: {
+      procedures: {
         test: () => "B TEST",
       },
     });
@@ -122,7 +122,7 @@ describe("sync", () => {
 
   test("fail", async () => {
     const eventsA = coFactoryA({
-      events: {
+      procedures: {
         test: () => {
           throw new Error("Simulated fail");
         },
@@ -130,7 +130,7 @@ describe("sync", () => {
     });
 
     const eventsB = coFactoryB({
-      events: {
+      procedures: {
         test: () => {
           throw new Error("Simulated fail");
         },
@@ -151,7 +151,7 @@ describe("sync", () => {
 describe("async", () => {
   test("success", async () => {
     const eventsA = coFactoryA({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
             setTimeout(() => {
@@ -162,7 +162,7 @@ describe("async", () => {
     });
 
     const eventsB = coFactoryB({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
             setTimeout(() => {
@@ -187,7 +187,7 @@ describe("async", () => {
 
   test("fail", async () => {
     const eventsA = coFactoryA({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((_resolve, reject) => {
             setTimeout(() => {
@@ -198,7 +198,7 @@ describe("async", () => {
     });
 
     const eventsB = coFactoryB({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((_resolve, reject) => {
             setTimeout(() => {
@@ -224,7 +224,7 @@ describe("async", () => {
 
   test("timeout", async () => {
     const eventsA = coFactoryA({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
             setTimeout(() => {
@@ -236,7 +236,7 @@ describe("async", () => {
     });
 
     const eventsB = coFactoryB({
-      events: {
+      procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
             setTimeout(() => {

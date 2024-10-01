@@ -2,10 +2,10 @@ import { extractError } from "./utils/extractError.js";
 
 const DEFAULT_EVENT_TIMEOUT = 5000;
 
-export type Events = Record<string, (...args: any) => any>;
+export type Procedures = Record<string, (...args: any) => any>;
 
 type Config<Listener extends (...args: any) => void> = {
-  events?: Events;
+  procedures?: Procedures;
   postMessage?: (message: unknown) => void;
   listener?: (handler: (message: unknown) => void) => Listener;
   addMessageEventListener?: (listener: Listener) => void;
@@ -14,12 +14,12 @@ type Config<Listener extends (...args: any) => void> = {
   logger?: (...args: any) => void;
 };
 
-type EventHandlers<E extends Events> = {
-  [EventName in keyof Omit<E, "createProxy">]: (
-    ...args: Parameters<E[EventName]>
-  ) => ReturnType<E[EventName]> extends Promise<unknown>
-    ? ReturnType<E[EventName]>
-    : Promise<ReturnType<E[EventName]>>;
+type RemoteProcedureProxy<RemoteProcedures extends Procedures> = {
+  [EventName in keyof Omit<RemoteProcedures, "createProxy">]: (
+    ...args: Parameters<RemoteProcedures[EventName]>
+  ) => ReturnType<RemoteProcedures[EventName]> extends Promise<unknown>
+    ? ReturnType<RemoteProcedures[EventName]>
+    : Promise<ReturnType<RemoteProcedures[EventName]>>;
 };
 
 export function createCorpc<
@@ -27,8 +27,10 @@ export function createCorpc<
   Cfg extends Config<Listener>,
 >(
   config: Config<Listener> & Cfg,
-): Cfg["events"] & {
-  createProxy<E extends Events>(): EventHandlers<E>;
+): Cfg["procedures"] & {
+  createProxy<
+    RemoteProcedures extends Procedures,
+  >(): RemoteProcedureProxy<RemoteProcedures>;
   cleanUp: () => void;
 } {
   const postMessageHandler =
@@ -51,7 +53,7 @@ export function createCorpc<
         window.removeEventListener("message", listener);
       })) as (listener: Listener | ((event: MessageEvent) => void)) => void;
 
-  function createProxy<E extends Events>() {
+  function createProxy<RemoteProcedures extends Procedures>() {
     let currentId = 0;
 
     return new Proxy(
@@ -60,7 +62,7 @@ export function createCorpc<
         get(target, prop, _receiver) {
           const eventName = prop as keyof typeof target;
 
-          const eventId = currentId++;
+          const procedureId = currentId++;
 
           return (...args: Parameters<(typeof target)[keyof typeof target]>) =>
             new Promise((resolve, reject) => {
@@ -80,15 +82,16 @@ export function createCorpc<
                   return;
                 }
 
-                const [name, resultEventId, wasSuccessful, result] = message;
+                const [name, resultProcedureId, wasSuccessful, result] =
+                  message;
 
                 if (typeof name !== "string") {
                   return;
                 }
 
                 if (
-                  typeof resultEventId !== "number" ||
-                  resultEventId !== eventId
+                  typeof resultProcedureId !== "number" ||
+                  resultProcedureId !== procedureId
                 ) {
                   return;
                 }
@@ -99,16 +102,20 @@ export function createCorpc<
 
                 if (
                   name === `result:${eventName}` &&
-                  resultEventId === eventId
+                  resultProcedureId === procedureId
                 ) {
                   clearTimeout(timeoutHandle);
 
                   if (wasSuccessful) {
                     resolve(result);
-                    config.logger?.("EVENT::SUCCESS", eventId, eventName);
+                    config.logger?.(
+                      "PROCEDURE::SUCCESS",
+                      procedureId,
+                      eventName,
+                    );
                   } else {
                     reject(result);
-                    config.logger?.("EVENT::FAIL", eventId, eventName);
+                    config.logger?.("PROCEDURE::FAIL", procedureId, eventName);
                   }
                 }
 
@@ -117,17 +124,17 @@ export function createCorpc<
 
               addMessageEventListenerHandler(listener);
 
-              postMessageHandler([eventName, eventId, ...args]);
+              postMessageHandler([eventName, procedureId, ...args]);
 
-              config.logger?.("EVENT::EMIT", eventId, eventName);
+              config.logger?.("PROCEDURE::EMIT", procedureId, eventName);
             });
         },
       },
-    ) as EventHandlers<E>;
+    ) as RemoteProcedureProxy<RemoteProcedures>;
   }
 
   function handleMessage(message: unknown) {
-    if (!config.events) {
+    if (!config.procedures) {
       return;
     }
 
@@ -135,25 +142,25 @@ export function createCorpc<
       return;
     }
 
-    const [name, eventId, ...rest]: Array<unknown> = message;
+    const [name, procedureId, ...rest]: Array<unknown> = message;
     if (typeof name !== "string") {
       return;
     }
-    if (typeof eventId !== "number") {
+    if (typeof procedureId !== "number") {
       return;
     }
 
-    for (const eventName of Object.keys(config.events)) {
-      if (eventName === name) {
+    for (const procedureName of Object.keys(config.procedures)) {
+      if (procedureName === name) {
         try {
           const handler =
-            config.events[eventName as keyof typeof config.events];
+            config.procedures[procedureName as keyof typeof config.procedures];
 
           if (!handler) {
             throw new Error("Handler has not been defined");
           }
 
-          config.logger?.("EVENT::HANDLE", eventId, eventName);
+          config.logger?.("PROCEDURE::HANDLE", procedureId, procedureName);
 
           const result = handler(...rest);
 
@@ -161,27 +168,32 @@ export function createCorpc<
             result
               .then((value) => {
                 postMessageHandler([
-                  `result:${eventName}`,
-                  eventId,
+                  `result:${procedureName}`,
+                  procedureId,
                   true,
                   value,
                 ]);
               })
               .catch((error) => {
                 postMessageHandler([
-                  `result:${eventName}`,
-                  eventId,
+                  `result:${procedureName}`,
+                  procedureId,
                   false,
                   extractError(error),
                 ]);
               });
           } else {
-            postMessageHandler([`result:${eventName}`, eventId, true, result]);
+            postMessageHandler([
+              `result:${procedureName}`,
+              procedureId,
+              true,
+              result,
+            ]);
           }
         } catch (error) {
           postMessageHandler([
-            `result:${eventName}`,
-            eventId,
+            `result:${procedureName}`,
+            procedureId,
             false,
             extractError(error),
           ]);
@@ -193,18 +205,18 @@ export function createCorpc<
   const messageListener = listenerHandler(handleMessage);
 
   function cleanUp() {
-    if (config.events) {
+    if (config.procedures) {
       removeMessageEventListenerHandler(messageListener);
     }
   }
 
-  if (config.events) {
+  if (config.procedures) {
     addMessageEventListenerHandler(messageListener);
   }
 
   return {
     createProxy,
     cleanUp,
-    ...config.events,
+    ...config.procedures,
   };
 }
