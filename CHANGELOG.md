@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.6
+
+### Patch Changes
+
+- a076663: Update API and examples
+
 ## 0.1.5
 
 ### Patch Changes
