@@ -1,1 +1,1 @@
-export { createCorpc } from "./corpc.js";
+export { defineProcedures } from "./corpc.js";

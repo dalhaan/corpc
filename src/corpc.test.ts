@@ -1,12 +1,12 @@
-import { createCorpc, type Procedures } from "./corpc.js";
+import { defineProcedures, type Procedures } from "./corpc.js";
 import { test, expect, describe } from "vitest";
 
 type Handler = (message: any) => void;
 
-const windowA = {
+const localWindow = {
   listeners: new Set<Handler>(),
   postMessage(message: any) {
-    windowB.onMessage(message);
+    remoteWindow.onMessage(message);
   },
   addListener(handler: Handler) {
     this.listeners.add(handler);
@@ -21,10 +21,10 @@ const windowA = {
   },
 };
 
-const windowB = {
+const remoteWindow = {
   listeners: new Set<Handler>(),
   postMessage(message: any) {
-    windowA.onMessage(message);
+    localWindow.onMessage(message);
   },
   addListener(handler: Handler) {
     this.listeners.add(handler);
@@ -39,89 +39,89 @@ const windowB = {
   },
 };
 
-function coFactoryA<E extends Procedures>({
+function rpcFactoryLocal<E extends Procedures>({
   procedures,
   timeout,
 }: {
   procedures?: E;
   timeout?: number;
 }) {
-  const eventHandlers = createCorpc({
+  const localProcedures = defineProcedures({
     procedures,
     postMessage(message) {
-      windowA.postMessage(message);
+      localWindow.postMessage(message);
     },
     listener: (handler) => (message: any) => {
       handler(message);
     },
     addMessageEventListener(listener) {
-      windowA.addListener(listener);
+      localWindow.addListener(listener);
     },
     removeMessageEventListener(listener) {
-      windowA.removeListener(listener);
+      localWindow.removeListener(listener);
     },
     timeout,
   });
 
-  return eventHandlers;
+  return localProcedures;
 }
 
-function coFactoryB<E extends Procedures>({
+function rpcFactoryRemote<E extends Procedures>({
   procedures,
   timeout,
 }: {
   procedures?: E;
   timeout?: number;
 }) {
-  const eventHandlers = createCorpc({
+  const remoteProcedures = defineProcedures({
     procedures,
     postMessage(message) {
-      windowB.postMessage(message);
+      remoteWindow.postMessage(message);
     },
     listener: (handler) => (message: any) => {
       handler(message);
     },
     addMessageEventListener(listener) {
-      windowB.addListener(listener);
+      remoteWindow.addListener(listener);
     },
     removeMessageEventListener(listener) {
-      windowB.removeListener(listener);
+      remoteWindow.removeListener(listener);
     },
     timeout,
   });
 
-  return eventHandlers;
+  return remoteProcedures;
 }
 
 describe("sync", () => {
   test("success", async () => {
-    const eventsA = coFactoryA({
+    const localProcedures = rpcFactoryLocal({
       procedures: {
         test: () => "A TEST",
       },
     });
 
-    const eventsB = coFactoryB({
+    const remoteProcedures = rpcFactoryRemote({
       procedures: {
         test: () => "B TEST",
       },
     });
 
-    const proxyA = eventsB.createProxy<typeof eventsA>();
-    const proxyB = eventsA.createProxy<typeof eventsB>();
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
 
-    const aTest = await proxyA.test();
-    const bTest = await proxyB.test();
+    const aTest = await localRPC.test();
+    const bTest = await remoteRPC.test();
 
     expect(aTest).toBe("A TEST");
     expect(bTest).toBe("B TEST");
 
-    eventsA.cleanUp();
-    eventsB.cleanUp();
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
   });
 
   test("fail", async () => {
-    const eventsA = coFactoryA({
+    const localProcedures = rpcFactoryLocal({
       procedures: {
         test: () => {
           throw new Error("Simulated fail");
@@ -129,7 +129,7 @@ describe("sync", () => {
       },
     });
 
-    const eventsB = coFactoryB({
+    const remoteProcedures = rpcFactoryRemote({
       procedures: {
         test: () => {
           throw new Error("Simulated fail");
@@ -137,20 +137,20 @@ describe("sync", () => {
       },
     });
 
-    const proxyA = eventsB.createProxy<typeof eventsA>();
-    const proxyB = eventsA.createProxy<typeof eventsB>();
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
 
-    await expect(() => proxyA.test()).rejects.toThrowError(/Simulated fail/);
-    await expect(() => proxyB.test()).rejects.toThrowError(/Simulated fail/);
+    await expect(() => localRPC.test()).rejects.toThrowError(/Simulated fail/);
+    await expect(() => remoteRPC.test()).rejects.toThrowError(/Simulated fail/);
 
-    eventsA.cleanUp();
-    eventsB.cleanUp();
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
   });
 });
 
 describe("async", () => {
   test("success", async () => {
-    const eventsA = coFactoryA({
+    const localProcedures = rpcFactoryLocal({
       procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
@@ -161,7 +161,7 @@ describe("async", () => {
       },
     });
 
-    const eventsB = coFactoryB({
+    const remoteProcedures = rpcFactoryRemote({
       procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
@@ -172,21 +172,21 @@ describe("async", () => {
       },
     });
 
-    const proxyA = eventsB.createProxy<typeof eventsA>();
-    const proxyB = eventsA.createProxy<typeof eventsB>();
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
 
-    const aLongAwaited = await proxyA.longAwaited();
-    const bLongAwaited = await proxyB.longAwaited();
+    const localLongAwaited = await localRPC.longAwaited();
+    const remoteLongAwaited = await remoteRPC.longAwaited();
 
-    expect(aLongAwaited).toBe("A longAwaited");
-    expect(bLongAwaited).toBe("B longAwaited");
+    expect(localLongAwaited).toBe("A longAwaited");
+    expect(remoteLongAwaited).toBe("B longAwaited");
 
-    eventsA.cleanUp();
-    eventsB.cleanUp();
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
   });
 
   test("fail", async () => {
-    const eventsA = coFactoryA({
+    const localProcedures = rpcFactoryLocal({
       procedures: {
         longAwaited: () =>
           new Promise<string>((_resolve, reject) => {
@@ -197,7 +197,7 @@ describe("async", () => {
       },
     });
 
-    const eventsB = coFactoryB({
+    const remoteProcedures = rpcFactoryRemote({
       procedures: {
         longAwaited: () =>
           new Promise<string>((_resolve, reject) => {
@@ -208,22 +208,22 @@ describe("async", () => {
       },
     });
 
-    const proxyA = eventsB.createProxy<typeof eventsA>();
-    const proxyB = eventsA.createProxy<typeof eventsB>();
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
 
-    await expect(() => proxyA.longAwaited()).rejects.toThrowError(
+    await expect(() => localRPC.longAwaited()).rejects.toThrowError(
       /Simulated fail/,
     );
-    await expect(() => proxyB.longAwaited()).rejects.toThrowError(
+    await expect(() => remoteRPC.longAwaited()).rejects.toThrowError(
       /Simulated fail/,
     );
 
-    eventsA.cleanUp();
-    eventsB.cleanUp();
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
   });
 
   test("timeout", async () => {
-    const eventsA = coFactoryA({
+    const localProcedures = rpcFactoryLocal({
       procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
@@ -235,7 +235,7 @@ describe("async", () => {
       timeout: 500,
     });
 
-    const eventsB = coFactoryB({
+    const remoteProcedures = rpcFactoryRemote({
       procedures: {
         longAwaited: () =>
           new Promise<string>((resolve) => {
@@ -247,13 +247,17 @@ describe("async", () => {
       timeout: 500,
     });
 
-    const proxyA = eventsB.createProxy<typeof eventsA>();
-    const proxyB = eventsA.createProxy<typeof eventsB>();
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
 
-    await expect(() => proxyA.longAwaited()).rejects.toThrowError(/timed out/);
-    await expect(() => proxyB.longAwaited()).rejects.toThrowError(/timed out/);
+    await expect(() => localRPC.longAwaited()).rejects.toThrowError(
+      /timed out/,
+    );
+    await expect(() => remoteRPC.longAwaited()).rejects.toThrowError(
+      /timed out/,
+    );
 
-    eventsA.cleanUp();
-    eventsB.cleanUp();
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
   });
 });

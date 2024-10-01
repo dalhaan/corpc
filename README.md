@@ -13,7 +13,7 @@ npm install corpc
 ## Usage
 
 ```ts
-createCorpc({
+defineProcedures({
   procedures,
   postMessage,
   listener,
@@ -22,7 +22,7 @@ createCorpc({
   timeout,
   logger,
 }): {
-  createProxy,
+  createRPC,
   cleanUp,
   ...procedures
 };
@@ -42,10 +42,10 @@ createCorpc({
 
 **Returns:**
 
-| Property      | Type                                                                                | Description                                      |
-| ------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `createProxy` | `<RemoteProcedures extends Procedures>() => RemoteProcedureProxy<RemoteProcedures>` | Creates the proxy for calling remote procedures. |
-| `cleanUp`     | `() => void`                                                                        | Remove message event listener.                   |
+| Property    | Type                                                                                | Description                                      |
+| ----------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `createRPC` | `<RemoteProcedures extends Procedures>() => RemoteProcedureProxy<RemoteProcedures>` | Creates the proxy for calling remote procedures. |
+| `cleanUp`   | `() => void`                                                                        | Remove message event listener.                   |
 
 ## Examples
 
@@ -54,12 +54,12 @@ createCorpc({
 ```ts
 // Parent
 
-import { createCorpc } from "corpc";
+import { defineProcedures } from "corpc";
 import type { IFrameProcedures } from "./iframe";
 
 const iframe: HTMLIFrameElement = new HTMLIFrameElement();
 
-const parentProcedures = createCorpc({
+const parentProcedures = defineProcedures({
   procedures: {
     getDataFromParent: (id: string) => {
       return "parent data";
@@ -68,19 +68,19 @@ const parentProcedures = createCorpc({
   postMessage: (message) => iframe.contentWindow?.postMessage(message, "*"),
 });
 
-const iframeProcedureProxy = parentProcedures.createProxy<IFrameProcedures>();
+const iframeRPC = parentProcedures.createRPC<IFrameProcedures>();
 
-const result = await iframeProcedureProxy.getDataFromIFrame(10);
+const result = await iframeRPC.getDataFromIFrame(10);
 // ^? const result: string
 
 export type ParentProcedures = typeof parentProcedures;
 
 // iFrame
 
-import { createCorpc } from "corpc";
+import { defineProcedures } from "corpc";
 import type { ParentProcedures } from "./parent";
 
-const iframeProcedures = createCorpc({
+const iframeProcedures = defineProcedures({
   procedures: {
     getDataFromIFrame: (id: number) => {
       return "iframe data";
@@ -89,9 +89,9 @@ const iframeProcedures = createCorpc({
   postMessage: (message: any) => window.top?.postMessage(message, "*"),
 });
 
-const parentProcedureProxy = iframeProcedures.createProxy<ParentProcedures>();
+const parentRPC = iframeProcedures.createRPC<ParentProcedures>();
 
-const result = await parentProcedureProxy.getDataFromParent("10");
+const result = await parentRPC.getDataFromParent("10");
 // ^? const result: string
 
 export type IFrameProcedures = typeof iframeEvents;
@@ -102,7 +102,7 @@ export type IFrameProcedures = typeof iframeEvents;
 ```ts
 // Main Process
 
-import { createCorpc } from "corpc";
+import { defineProcedures } from "corpc";
 import type { UiProcedures } from "./ui";
 
 const listeners = Set<(message: unknown) => void>();
@@ -121,7 +121,7 @@ figma.ui.onmessage = (message: unknown): void => {
   }
 };
 
-const mainProcedures = createCorpc({
+const mainProcedures = defineProcedures({
   procedures: {
     getCurrentUser: () => figma.currentUser,
     getState: (key: string) => figma.clientStorage.getAsync(key),
@@ -143,16 +143,16 @@ const mainProcedures = createCorpc({
   },
 });
 
-const uiProcedureProxy = mainProcedures.createProxy<UiProcedures>();
+const uiRPC = mainProcedures.createRPC<UiProcedures>();
 
 export type MainProcedures = typeof mainProcedures;
 
 // UI Process
 
-import { createCorpc } from "corpc";
+import { defineProcedures } from "corpc";
 import type { MainProcedures } from "./main";
 
-const uiProcedures = createCorpc({
+const uiProcedures = defineProcedures({
   postMessage: (message) => {
     window.parent.postMessage(
       {
@@ -166,10 +166,10 @@ const uiProcedures = createCorpc({
   },
 });
 
-export const mainProcedureProxy = uiProcedures.createProxy<MainProcedures>();
+export const mainRPC = uiProcedures.createRPC<MainProcedures>();
 
 export type UiProcedures = typeof uiProcedures;
 
-const user = await mainProcedureProxy.getCurrentUser();
+const user = await mainRPC.getCurrentUser();
 // ^? const user: User | null
 ```

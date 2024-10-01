@@ -22,13 +22,13 @@ type RemoteProcedureProxy<RemoteProcedures extends Procedures> = {
     : Promise<ReturnType<RemoteProcedures[EventName]>>;
 };
 
-export function createCorpc<
+export function defineProcedures<
   Listener extends (...args: any) => void,
   Cfg extends Config<Listener>,
 >(
   config: Config<Listener> & Cfg,
 ): Cfg["procedures"] & {
-  createProxy<
+  createRPC<
     RemoteProcedures extends Procedures,
   >(): RemoteProcedureProxy<RemoteProcedures>;
   cleanUp: () => void;
@@ -53,7 +53,7 @@ export function createCorpc<
         window.removeEventListener("message", listener);
       })) as (listener: Listener | ((event: MessageEvent) => void)) => void;
 
-  function createProxy<RemoteProcedures extends Procedures>() {
+  function createRPC<RemoteProcedures extends Procedures>() {
     let currentId = 0;
 
     return new Proxy(
@@ -215,7 +215,7 @@ export function createCorpc<
   }
 
   return {
-    createProxy,
+    createRPC,
     cleanUp,
     ...config.procedures,
   };
