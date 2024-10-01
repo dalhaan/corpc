@@ -1,6 +1,6 @@
 # coRPC: Cross-Origin Remote Procedure Call
 
-<!-- <a href="https://pkg-size.dev/corpc"><img src="https://pkg-size.dev/badge/install/27616" title="Install size for corpc"></a> <a href="https://pkg-size.dev/corpc"><img src="https://pkg-size.dev/badge/bundle/1514" title="Bundle size for corpc"></a> -->
+<a href="https://pkg-size.dev/corpc"><img src="https://pkg-size.dev/badge/install/33881" title="Install size for corpc"></a> <a href="https://pkg-size.dev/corpc"><img src="https://pkg-size.dev/badge/bundle/1554" title="Bundle size for corpc"></a>
 
 A package for promisifying cross-origin messaging (e.g. `window.postMessage`).
 
