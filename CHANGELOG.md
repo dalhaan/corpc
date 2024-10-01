@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.5
+
+### Patch Changes
+
+- 2d275e0: Update README and API
+
 ## 0.1.4
 
 ### Patch Changes
