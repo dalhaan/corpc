@@ -61,6 +61,7 @@ function rpcFactoryLocal<E extends Procedures>({
       localWindow.removeListener(listener);
     },
     timeout,
+    logger: (...args) => console.log("Local", ...args),
   });
 
   return localProcedures;
@@ -88,6 +89,7 @@ function rpcFactoryRemote<E extends Procedures>({
       remoteWindow.removeListener(listener);
     },
     timeout,
+    logger: (...args) => console.log("Remote", ...args),
   });
 
   return remoteProcedures;
@@ -142,6 +144,42 @@ describe("sync", () => {
 
     await expect(() => localRPC.test()).rejects.toThrowError(/Simulated fail/);
     await expect(() => remoteRPC.test()).rejects.toThrowError(/Simulated fail/);
+
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
+  });
+
+  test("many events", async () => {
+    const localProcedures = rpcFactoryLocal({
+      procedures: {
+        test: () => "A TEST",
+        testB: () => "A TEST B",
+        testC: () => "A TEST C",
+        testD: () => "A TEST D",
+      },
+    });
+
+    const remoteProcedures = rpcFactoryRemote({
+      procedures: {
+        test: () => "B TEST",
+        testB: () => "B TEST B",
+        testC: () => "B TEST C",
+        testD: () => "B TEST D",
+      },
+    });
+
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
+
+    expect(await localRPC.test()).toBe("A TEST");
+    expect(await localRPC.testB()).toBe("A TEST B");
+    expect(await localRPC.testC()).toBe("A TEST C");
+    expect(await localRPC.testD()).toBe("A TEST D");
+
+    expect(await remoteRPC.test()).toBe("B TEST");
+    expect(await remoteRPC.testB()).toBe("B TEST B");
+    expect(await remoteRPC.testC()).toBe("B TEST C");
+    expect(await remoteRPC.testD()).toBe("B TEST D");
 
     localProcedures.cleanUp();
     remoteProcedures.cleanUp();

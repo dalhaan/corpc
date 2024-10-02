@@ -1,7 +1,5 @@
 import { extractError } from "./utils/extractError.js";
 
-const DEFAULT_EVENT_TIMEOUT = 5000;
-
 export type Procedures = Record<string, (...args: any) => any>;
 
 type Config<Listener extends (...args: any) => void> = {
@@ -25,34 +23,29 @@ type RemoteProcedureProxy<RemoteProcedures extends Procedures> = {
 export function defineProcedures<
   Listener extends (...args: any) => void,
   Cfg extends Config<Listener>,
->(
-  config: Config<Listener> & Cfg,
-): Cfg["procedures"] & {
+>({
+  procedures,
+  postMessage = (message) => {
+    window.parent.postMessage(message, "*");
+  },
+  // @ts-expect-error
+  listener = (handler) => (event: MessageEvent) => {
+    handler(event.data);
+  },
+  addMessageEventListener = (listener: (event: MessageEvent) => void) => {
+    window.addEventListener("message", listener);
+  },
+  removeMessageEventListener = (listener: (event: MessageEvent) => void) => {
+    window.removeEventListener("message", listener);
+  },
+  timeout = 5000,
+  logger,
+}: Config<Listener> & Cfg): Cfg["procedures"] & {
   createRPC<
     RemoteProcedures extends Procedures,
   >(): RemoteProcedureProxy<RemoteProcedures>;
   cleanUp: () => void;
 } {
-  const postMessageHandler =
-    config.postMessage ||
-    ((message: unknown) => {
-      window.parent.postMessage(message, "*");
-    });
-  const listenerHandler =
-    config.listener ||
-    ((handler) => (event: MessageEvent) => {
-      handler(event.data);
-    });
-  const addMessageEventListenerHandler = (config.addMessageEventListener ||
-    ((listener: (event: MessageEvent) => void) => {
-      window.addEventListener("message", listener);
-    })) as (listener: Listener | ((event: MessageEvent) => void)) => void;
-  const removeMessageEventListenerHandler =
-    (config.removeMessageEventListener ||
-      ((listener: (event: MessageEvent) => void) => {
-        window.removeEventListener("message", listener);
-      })) as (listener: Listener | ((event: MessageEvent) => void)) => void;
-
   function createRPC<RemoteProcedures extends Procedures>() {
     let currentId = 0;
 
@@ -66,14 +59,14 @@ export function defineProcedures<
 
           return (...args: Parameters<(typeof target)[keyof typeof target]>) =>
             new Promise((resolve, reject) => {
-              const listener = listenerHandler(onMessage);
+              const handleProcedureResponse = listener(onProcedureResponse);
 
               const timeoutHandle = setTimeout(() => {
                 reject(new Error("Event handler timed out."));
-                removeMessageEventListenerHandler(listener);
-              }, config.timeout ?? DEFAULT_EVENT_TIMEOUT);
+                removeMessageEventListener(handleProcedureResponse);
+              }, timeout);
 
-              function onMessage(message: unknown) {
+              function onProcedureResponse(message: unknown) {
                 if (typeof message === "undefined") {
                   return;
                 }
@@ -82,10 +75,19 @@ export function defineProcedures<
                   return;
                 }
 
-                const [name, resultProcedureId, wasSuccessful, result] =
-                  message;
+                const [
+                  name,
+                  resultProcedureId,
+                  isResult,
+                  wasSuccessful,
+                  result,
+                ] = message;
 
                 if (typeof name !== "string") {
+                  return;
+                }
+
+                if (isResult !== true) {
                   return;
                 }
 
@@ -100,33 +102,26 @@ export function defineProcedures<
                   return;
                 }
 
-                if (
-                  name === `result:${eventName}` &&
-                  resultProcedureId === procedureId
-                ) {
+                if (name === eventName) {
                   clearTimeout(timeoutHandle);
 
                   if (wasSuccessful) {
                     resolve(result);
-                    config.logger?.(
-                      "PROCEDURE::SUCCESS",
-                      procedureId,
-                      eventName,
-                    );
+                    logger?.("PROCEDURE::SUCCESS", procedureId, eventName);
                   } else {
                     reject(result);
-                    config.logger?.("PROCEDURE::FAIL", procedureId, eventName);
+                    logger?.("PROCEDURE::FAIL", procedureId, eventName);
                   }
                 }
 
-                removeMessageEventListenerHandler(listener);
+                removeMessageEventListener(handleProcedureResponse);
               }
 
-              addMessageEventListenerHandler(listener);
+              addMessageEventListener(handleProcedureResponse);
 
-              postMessageHandler([eventName, procedureId, ...args]);
+              postMessage([eventName, procedureId, false, ...args]);
 
-              config.logger?.("PROCEDURE::EMIT", procedureId, eventName);
+              logger?.("PROCEDURE::EMIT", procedureId, eventName);
             });
         },
       },
@@ -134,7 +129,7 @@ export function defineProcedures<
   }
 
   function handleMessage(message: unknown) {
-    if (!config.procedures) {
+    if (!procedures) {
       return;
     }
 
@@ -142,7 +137,8 @@ export function defineProcedures<
       return;
     }
 
-    const [name, procedureId, ...rest]: Array<unknown> = message;
+    const [name, procedureId, isResult, ...rest]: Array<unknown> = message;
+
     if (typeof name !== "string") {
       return;
     }
@@ -150,50 +146,45 @@ export function defineProcedures<
       return;
     }
 
-    for (const procedureName of Object.keys(config.procedures)) {
+    if (isResult !== false) {
+      return;
+    }
+
+    for (const procedureName of Object.keys(procedures)) {
       if (procedureName === name) {
         try {
-          const handler =
-            config.procedures[procedureName as keyof typeof config.procedures];
+          const handler = procedures[procedureName as keyof typeof procedures];
 
           if (!handler) {
             throw new Error("Handler has not been defined");
           }
 
-          config.logger?.("PROCEDURE::HANDLE", procedureId, procedureName);
+          logger?.("PROCEDURE::HANDLE", procedureId, procedureName);
 
           const result = handler(...rest);
 
           if (result instanceof Promise) {
             result
               .then((value) => {
-                postMessageHandler([
-                  `result:${procedureName}`,
-                  procedureId,
-                  true,
-                  value,
-                ]);
+                postMessage([procedureName, procedureId, true, true, value]);
               })
               .catch((error) => {
-                postMessageHandler([
-                  `result:${procedureName}`,
+                postMessage([
+                  procedureName,
                   procedureId,
+                  true,
                   false,
                   extractError(error),
                 ]);
               });
           } else {
-            postMessageHandler([
-              `result:${procedureName}`,
-              procedureId,
-              true,
-              result,
-            ]);
+            postMessage([procedureName, procedureId, true, true, result]);
           }
         } catch (error) {
-          postMessageHandler([
-            `result:${procedureName}`,
+          postMessage([
+            procedureName,
             procedureId,
+            true,
             false,
             extractError(error),
           ]);
@@ -202,21 +193,21 @@ export function defineProcedures<
     }
   }
 
-  const messageListener = listenerHandler(handleMessage);
+  const messageListener = listener(handleMessage);
 
   function cleanUp() {
-    if (config.procedures) {
-      removeMessageEventListenerHandler(messageListener);
+    if (procedures) {
+      removeMessageEventListener(messageListener);
     }
   }
 
-  if (config.procedures) {
-    addMessageEventListenerHandler(messageListener);
+  if (procedures) {
+    addMessageEventListener(messageListener);
   }
 
   return {
     createRPC,
     cleanUp,
-    ...config.procedures,
+    ...procedures,
   };
 }
