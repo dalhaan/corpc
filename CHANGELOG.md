@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.8
+
+### Patch Changes
+
+- 2c075fa: Update bundle sizes
+
 ## 0.1.7
 
 ### Patch Changes
