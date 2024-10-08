@@ -10,10 +10,21 @@ A package for promisifying cross-origin messaging (e.g. `window.postMessage`).
 npm install corpc
 ```
 
+```sh
+yarn add corpc
+```
+
+```sh
+pnpm add corpc
+```
+
 ## Usage
 
 ```ts
-defineProcedures({
+import { defineProcedures } from "corpc";
+import type { RemoteProcedures } from "./remote-procedures";
+
+const localProcedures = defineProcedures({
   procedures,
   postMessage,
   listener,
@@ -26,19 +37,23 @@ defineProcedures({
   cleanUp,
   ...procedures
 };
+
+export type LocalProcedures = typeof localProcedures;
+
+const remoteRPC = procedures.createRPC<RemoteProcedures>();
 ```
 
 **Parameter:**
 
-| Property                     | Type                                                | Default                                                                                             | Description                                                           |
-| ---------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `procedures`                 | `Record<string, (...args: unknown) => any>`         | `undefined`                                                                                         | Local procedures to be called remotely.                               |
-| `postMessage`                | `(message: unknown) => void`                        | `(message: unknown) => { window.parent.postMessage(message, "*"); }`                                | The local post message implementation.                                |
-| `listener`                   | `(handler: (message: unknown) => void) => Listener` | `(handler) => (event: MessageEvent) => { handler(event.data); }`                                    | The local message event listener implementation.                      |
-| `addMessageEventListener`    | `(listener: Listener) => void`                      | `(listener: (event: MessageEvent) => void) => { window.addEventListener("message", listener); }`    | The local "add message event listener" implementation.                |
-| `removeMessageEventListener` | `(listener: Listener) => void`                      | `(listener: (event: MessageEvent) => void) => { window.removeEventListener("message", listener); }` | The local "remove message event listener" implementation.             |
-| `timeout`                    | `number`                                            | `5000`                                                                                              | RPC timeout. Function will throw if it takes longer than the timeout. |
-| `logger`                     | `(...args: any) => void`                            | `undefined`                                                                                         | Log function for debug logging.                                       |
+| Property                     | Type                                                     | Default                                                                                             | Description                                                                                                                                                                   |
+| ---------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `procedures`                 | `{ [procedureName: string]: (...args: unknown) => any }` | `undefined`                                                                                         | The local functions to be called remotely.                                                                                                                                    |
+| `postMessage`                | `(message: unknown) => void`                             | `(message: unknown) => { window.parent.postMessage(message, "*"); }`                                | Define the function that sends messages to the other origin.<br><br> `message` is what is sent by coRPC and needs to be received by the other origin via the `listener` prop. |
+| `listener`                   | `(handler: (message: unknown) => void) => Listener`      | `(handler) => (event: MessageEvent) => { handler(event.data); }`                                    | Define the listener handler. This is used in `addMessageEventListener` and `removeMessageEventListener`.<br><br>`handler` expects the `message` argument from `postMessage`.  |
+| `addMessageEventListener`    | `(listener: Listener) => void`                           | `(listener: (event: MessageEvent) => void) => { window.addEventListener("message", listener); }`    | The local "add message event listener" implementation.                                                                                                                        |
+| `removeMessageEventListener` | `(listener: Listener) => void`                           | `(listener: (event: MessageEvent) => void) => { window.removeEventListener("message", listener); }` | The local "remove message event listener" implementation.                                                                                                                     |
+| `timeout`                    | `number`                                                 | `5000`                                                                                              | RPC timeout. Function will throw if it takes longer than the timeout.                                                                                                         |
+| `logger`                     | `(...args: any) => void`                                 | `undefined`                                                                                         | Log function for debug logging.                                                                                                                                               |
 
 **Returns:**
 
@@ -52,7 +67,7 @@ defineProcedures({
 ### iFrame example
 
 ```ts
-// Parent
+// parent.ts
 
 import { defineProcedures } from "corpc";
 import type { IFrameProcedures } from "./iframe";
@@ -68,14 +83,21 @@ const parentProcedures = defineProcedures({
   postMessage: (message) => iframe.contentWindow?.postMessage(message, "*"),
 });
 
+export type ParentProcedures = typeof parentProcedures;
+
 const iframeRPC = parentProcedures.createRPC<IFrameProcedures>();
+/**
+ * ^? const iframeRPC: {
+ *      getDataFromIFrame: (id: number) => Promise<string>;
+ *    }
+ */
 
 const result = await iframeRPC.getDataFromIFrame(10);
 // ^? const result: string
+```
 
-export type ParentProcedures = typeof parentProcedures;
-
-// iFrame
+```ts
+// iframe.ts
 
 import { defineProcedures } from "corpc";
 import type { ParentProcedures } from "./parent";
@@ -89,18 +111,23 @@ const iframeProcedures = defineProcedures({
   postMessage: (message: any) => window.top?.postMessage(message, "*"),
 });
 
+export type IFrameProcedures = typeof iframeEvents;
+
 const parentRPC = iframeProcedures.createRPC<ParentProcedures>();
+/**
+ * ^? const parentRPC: {
+ *      getDataFromParent: (id: string) => Promise<string>;
+ *    }
+ */
 
 const result = await parentRPC.getDataFromParent("10");
 // ^? const result: string
-
-export type IFrameProcedures = typeof iframeEvents;
 ```
 
 ### Figma plugin example
 
 ```ts
-// Main Process
+// main.ts
 
 import { defineProcedures } from "corpc";
 import type { UiProcedures } from "./ui";
@@ -143,11 +170,16 @@ const mainProcedures = defineProcedures({
   },
 });
 
-const uiRPC = mainProcedures.createRPC<UiProcedures>();
-
 export type MainProcedures = typeof mainProcedures;
 
-// UI Process
+const uiRPC = mainProcedures.createRPC<UiProcedures>();
+/**
+ * ^? const uiRPC: {}
+ */
+```
+
+```ts
+// ui.ts
 
 import { defineProcedures } from "corpc";
 import type { MainProcedures } from "./main";
@@ -166,9 +198,17 @@ const uiProcedures = defineProcedures({
   },
 });
 
-export const mainRPC = uiProcedures.createRPC<MainProcedures>();
-
 export type UiProcedures = typeof uiProcedures;
+
+export const mainRPC = uiProcedures.createRPC<MainProcedures>();
+/**
+ * ^? const mainRPC: {
+ *      getCurrentUser: () => Promise<User | null>;
+ *      getState: (key: string) => Promise<unknown>;
+ *      updateState: (key: string, value: any) => Promise<void>;
+ *      close: () => Promise<void>;
+ *    }
+ */
 
 const user = await mainRPC.getCurrentUser();
 // ^? const user: User | null

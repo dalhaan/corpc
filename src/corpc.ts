@@ -128,7 +128,7 @@ export function defineProcedures<
     ) as RemoteProcedureProxy<RemoteProcedures>;
   }
 
-  function handleMessage(message: unknown) {
+  async function handleMessage(message: unknown) {
     if (!procedures) {
       return;
     }
@@ -163,23 +163,13 @@ export function defineProcedures<
 
           const result = handler(...rest);
 
-          if (result instanceof Promise) {
-            result
-              .then((value) => {
-                postMessage([procedureName, procedureId, true, true, value]);
-              })
-              .catch((error) => {
-                postMessage([
-                  procedureName,
-                  procedureId,
-                  true,
-                  false,
-                  extractError(error),
-                ]);
-              });
-          } else {
-            postMessage([procedureName, procedureId, true, true, result]);
-          }
+          postMessage([
+            procedureName,
+            procedureId,
+            true,
+            true,
+            result instanceof Promise ? await result : result,
+          ]);
         } catch (error) {
           postMessage([
             procedureName,

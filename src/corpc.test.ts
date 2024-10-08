@@ -184,6 +184,35 @@ describe("sync", () => {
     localProcedures.cleanUp();
     remoteProcedures.cleanUp();
   });
+
+  test("undefined RPC", async () => {
+    const localProcedures = rpcFactoryLocal({
+      procedures: {
+        a: () => "local:a",
+        b: () => "local:b",
+      },
+      timeout: 500,
+    });
+
+    const remoteProcedures = rpcFactoryRemote({
+      procedures: {
+        a: () => "remote:a",
+        b: () => "remote:b",
+      },
+      timeout: 500,
+    });
+
+    const localRPC = remoteProcedures.createRPC<typeof localProcedures>();
+    const remoteRPC = localProcedures.createRPC<typeof remoteProcedures>();
+
+    // @ts-expect-error we are intentionally calling an RPC that doesn't exist on the remote
+    await expect(() => localRPC.c()).rejects.toThrowError(/timed out/);
+    // @ts-expect-error we are intentionally calling an RPC that doesn't exist on the remote
+    await expect(() => remoteRPC.c()).rejects.toThrowError(/timed out/);
+
+    localProcedures.cleanUp();
+    remoteProcedures.cleanUp();
+  });
 });
 
 describe("async", () => {
