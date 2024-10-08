@@ -1,5 +1,11 @@
 # corpc
 
+## 0.1.7
+
+### Patch Changes
+
+- e19874e: Update README & update promise handling & add tests
+
 ## 0.1.6
 
 ### Patch Changes
