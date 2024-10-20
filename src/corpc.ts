@@ -13,7 +13,7 @@ type Config<Listener extends (...args: any) => void> = {
 };
 
 type RemoteProcedureProxy<RemoteProcedures extends Procedures> = {
-  [EventName in keyof Omit<RemoteProcedures, "createProxy">]: (
+  [EventName in keyof Omit<RemoteProcedures, "createRPC">]: (
     ...args: Parameters<RemoteProcedures[EventName]>
   ) => ReturnType<RemoteProcedures[EventName]> extends Promise<unknown>
     ? ReturnType<RemoteProcedures[EventName]>
