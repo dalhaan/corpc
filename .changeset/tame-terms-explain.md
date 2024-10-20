@@ -1,0 +1,5 @@
+---
+"corpc": patch
+---
+
+Fix types
